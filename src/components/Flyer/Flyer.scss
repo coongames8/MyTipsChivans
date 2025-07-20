@@ -1,0 +1,176 @@
+.flyer-glass {
+    width: 100%;
+    padding: 3rem 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .flyer-content {
+    text-align: center;
+    max-width: 800px;
+    padding: 0 1.5rem;
+    z-index: 2;
+  }
+
+  .flyer-title {
+    color: white;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  .flyer-subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .glass-btn {
+    padding: 0.8rem 2rem;
+    border-radius: 2rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+
+    &.primary {
+      background: rgba(0, 119, 255, 0.2);
+      border: 1px solid rgba(0, 119, 255, 0.3);
+      color: white;
+
+      &:hover {
+        background: rgba(0, 119, 255, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 119, 255, 0.2);
+      }
+    }
+  }
+
+  .winning-tips {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    padding: 1rem 0;
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 60px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    &::before {
+      left: 0;
+      background: linear-gradient(90deg, rgba(0, 0, 0, 0.5), transparent);
+    }
+
+    &::after {
+      right: 0;
+      background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.5));
+    }
+  }
+
+  .scroller {
+    display: flex;
+    gap: 1rem;
+    animation: scroll 30s linear infinite;
+    width: max-content;
+    padding: 0 2rem;
+  }
+
+  @keyframes scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .tip-card {
+    flex: 0 0 280px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    padding: 1.2rem;
+    border-left: 4px solid var(--neon-blue);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+
+    &.premium {
+      border-left-color: #FFBD59;
+    }
+
+    &:hover {
+      transform: translateY(-5px);
+    }
+  }
+
+  .teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+
+    .team {
+      flex: 1;
+      color: white;
+      font-size: 0.95rem;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .score {
+      background: rgba(0, 119, 255, 0.2);
+      color: white;
+      padding: 0.2rem 0.8rem;
+      border-radius: 4px;
+      font-weight: 600;
+      min-width: 45px;
+      text-align: center;
+    }
+  }
+
+  .match-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8);
+
+    .icon {
+      font-size: 1rem !important;
+      margin-right: 0.3rem;
+
+      &.won {
+        color: var(--neon-blue);
+        font-size: .7em;
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    .flyer-glass {
+      padding: 2rem 0;
+    }
+
+    .flyer-title {
+      font-size: 1.6rem;
+    }
+
+    .flyer-subtitle {
+      font-size: 1rem;
+    }
+
+    .tip-card {
+      flex: 0 0 260px;
+    }
+  }

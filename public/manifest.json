@@ -1,0 +1,171 @@
+{
+  "short_name": "MyTips",
+  "name": "MyTips",
+  "homepage": "https://mytips.onrender.com",
+  "version": "0.1.0",
+  "description": "Get all the latest ✓Football Predictions, ✓Latest Football Betting Odds and livescores, results & fixtures for all leagues and competitions, including the Premier League, Championship and across the world.",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "maskable_icon.png",
+      "sizes": "196x196",
+      "type": "image/png"
+    },
+    {
+      "src": "logo16.png",
+      "type": "image/png",
+      "sizes": "16x16"
+    },
+    {
+      "src": "logo32.png",
+      "type": "image/png",
+      "sizes": "32x32"
+    },
+    {
+      "src": "logo48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "logo64.png",
+      "type": "image/png",
+      "sizes": "64x64"
+    },
+    {
+      "src": "logo96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "logo120.png",
+      "type": "image/png",
+      "sizes": "120x120"
+    },
+    {
+      "src": "logo128.png",
+      "type": "image/png",
+      "sizes": "128x128"
+    },
+    {
+      "src": "logo152.png",
+      "type": "image/png",
+      "sizes": "152x152"
+    },
+    {
+      "src": "logo180.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Get VIP Tips",
+      "short_name": "VIP Tips",
+      "description": "Access the latest fixed VIP tips and predictions.",
+      "url": "/",
+      "icons": [
+        {
+          "src": "icons/logo192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Today's Predictions",
+      "short_name": "Today's Tips",
+      "description": "Check for toda's VIP Tips.",
+      "url": "/",
+      "icons": [
+        {
+          "src": "icons/logo192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "service_worker": {
+    "src": "/service-worker.js",
+    "scope": "/",
+    "type": "classic"
+  },
+  "developer": {
+    "name": "MyTips",
+    "url": "https://mytips.onrender.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kkibe/MyTips"
+  },
+  "license": "ISC/MIT",
+  "keywords": [
+    "Football Predictions",
+    "Betting Odds",
+    "Live Scores",
+    "Betika",
+    "Sportpesa",
+    "365Bet",
+    "Live Sports",
+    "Football Results",
+    "Football Fixtures",
+    "Football Today",
+    "Online Betting",
+    "Sports",
+    "Odibets",
+    "Premier League",
+    "Championship",
+    "Super Sports",
+    "Laliga",
+    "Bundesliga",
+    "Serie A",
+    "Live Bet",
+    "Casino"
+  ],
+  "dir": "ltr",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#00ae58",
+  "background_color": "#ebf4fc",
+  "orientation": "portrait",
+  "categories": [
+    "Utilities",
+    "Sports",
+    "Betting",
+    "Productivity",
+    "Social",
+    "News",
+    "Tools",
+    "Gambling"
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "id": "com.powerking",
+      "url": "https://play.google.com/store/apps/details?id=com.powerking"
+    },
+    {
+      "platform": "amazon",
+      "id": "com.powerking",
+      "url": "https://www.amazon.com/gp/mas/dl/android?p=com.powerking"
+    }
+  ],
+  "prefer_related_applications": false
+}

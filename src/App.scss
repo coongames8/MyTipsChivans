@@ -1,0 +1,153 @@
+:root{
+   --lite: #fff;
+      --black: #000000;
+      --dark: #3b3b3b;
+      --light-blue: #d0ffc4;
+      --neon-blue: #0FFF50;
+      --dark-blue: #007a37; //#007A37;//#0067b8
+      --blue: #00ae58; //#00B140;#2ecc71
+      --grey: #567c73; //#8198ae//7a7979//#4d5974
+      --light-grey: #ccc;
+      --dark-shadow: 0px 5px 3px -4px var(--dark);
+      --shadow: 0px 1px 2px -1px var(--dark), 0px 1px 2px -1px var(--blue);
+      --transparent: #00000008;
+      --hue: #00ae58;
+      --bg: hsl(var(--hue), 90%, 95%);
+      --fg: hsl(var(--hue), 90%, 5%);
+      --odd: #6ac147;
+      --even: #f04f30;
+  }
+
+  *, *::before, *::after{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font: 17px "Montserrat", sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  .App{
+      width: 100%;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--dark);
+
+
+                  //background: rgba(0, 0, 0, 0.5);
+                  background-image: -webkit-gradient(
+                    linear,
+                    left top,
+                    left bottom,
+                    from(rgba(0, 0, 0, 0.4)),
+                    to(rgba(0, 0, 0, 0.4))
+                  ),
+                  url(./assets/l4.jpg);
+                  //url('https://i.postimg.cc/FzSHSbhQ/img-soccer.jpg');
+                background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+                  url(./assets/l4.jpg);
+                  //url('https://i.postimg.cc/FzSHSbhQ/img-soccer.jpg');
+                background-size: auto;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+
+      h1{
+        width: 100%;
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--dark);
+        text-transform: uppercase;
+        width: 100%;
+        text-align: center;
+        padding: 5px 0;
+        letter-spacing: 6px;
+        &.small{
+          text-align: start;
+          font-size: 22px;
+          font-weight: 500;
+        }
+      }
+
+      h2{
+          text-align: center;
+          font-size: 26px;
+          font-weight: 400;
+          margin: 5px 0;
+      }
+
+      h3{
+        font-weight: 400;
+        font-size: 24px;
+        color: var(--dark-blue);
+        flex: 1.5;
+      }
+
+      h4{
+        font-size: 20px;
+        color: var(--grey);
+      }
+
+      a{
+        text-decoration: none;
+        color: var(--blue);
+      }
+
+      .post-container{
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 15px;
+        padding: 5px 5px;
+
+        @media screen and (max-width: 900px){
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        @media screen and (max-width: 789px){
+          grid-template-columns: 1fr 1fr;
+        }
+
+        @media screen and (max-width: 576px){
+          grid-template-columns: 1fr;
+        }
+
+
+
+
+    }
+
+    .btn{
+      background: var(--blue);
+      border-radius: 5px;
+      padding: 8px 20px;
+      color: var(--lite);
+      transition: all 0.2s;
+      -webkit-transition: all 0.4s;
+      -moz-transition: all 0.4s;
+      -ms-transition: all 0.4s;
+      -o-transition: all 0.4s;
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: none;
+      border: 1px solid var(--dark-blue);
+      &:hover:not(:disabled){
+          background: transparent;
+          color: var(--dark-blue);
+          box-shadow: none;
+          background: var(--light-blue);
+
+          box-shadow: 0px 25px 18px -6px rgba(0, 0, 0, 0.2);
+          background: var(--dark-blue);
+          color: var(--lite);
+
+          -webkit-transform: translateY(-5px);
+          -ms-transform: translateY(-5px);
+          -o-transform: translateY(-5px);
+          transform: translateY(-5px);
+          box-shadow: 0 1rem 1.5rem rgba(0, 0, 0, 0.25);
+      }
+    }
+  }

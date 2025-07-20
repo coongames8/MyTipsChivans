@@ -1,0 +1,106 @@
+.faqItem{
+    border: 1px solid var(--light-color);
+    border-radius: 5px;
+    padding: 10px 5px;
+    position: relative;
+    overflow: hidden;
+    margin: 1rem 1rem;
+    border-bottom: 1px solid #e5e5e5;
+    div{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        h3{
+            margin: 0 35px 0 0;
+            //font-size: 1.5rem;
+            display: block;
+            text-align: left;
+            width: 100%;
+            color: var(--grey);
+        }
+        .icon {
+            display: inline-block;
+            position: absolute;
+            top: 18px;
+            right: 0;
+            width: 22px;
+            height: 22px;
+            border: 1px solid;
+            border-radius: 22px;
+            cursor: pointer;
+            &::before{
+                display: block;
+                position: absolute;
+                content: "";
+                top: 9px;
+                left: 5px;
+                width: 10px;
+                height: 2px;
+                background: currentColor;
+            }
+            &::after{
+                display: block;
+                position: absolute;
+                content: "";
+                top: 5px;
+                left: 9px;
+                width: 2px;
+                height: 10px;
+                background: currentColor;
+              }
+          }
+
+
+          .icon-opened {
+            display: inline-block;
+            position: absolute;
+            top: 18px;
+            right: 0;
+            width: 22px;
+            height: 22px;
+            border: 1px solid;
+            border-radius: 22px;
+            cursor: pointer;
+            &::before{
+                display: block;
+                position: absolute;
+                content: "";
+                top: 9px;
+                left: 5px;
+                width: 10px;
+                height: 2px;
+                background: currentColor;
+            }
+          }
+    }
+    p{
+        display: none;
+        margin: 30px 0 0;
+        margin: 2em 0;
+    }
+
+
+    
+
+    &.active{
+        box-shadow: 0 3px 6px var(--box-shadow);
+        transition: 2s ease-in;
+        &::before, &::after{
+            color: var(--blue);
+            content: '\f075';
+            position: absolute;
+            opacity: 0.2;
+            top: 20px;
+            left: 20px;
+            z-index: 0;
+        }
+
+
+
+        p{
+            display: block;
+        }
+    }
+}
+
+

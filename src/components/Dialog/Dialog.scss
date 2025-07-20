@@ -1,0 +1,28 @@
+.dialog{
+    width: 400px;
+    gap: 5px;
+    padding: 10px 5px;
+    background: var(--light-blue);
+    border-radius: 5px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+
+    .top{
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-direction: column;
+        .error{
+            color: var(--even);
+        }
+        
+        .success{
+            color: var(--blue);
+        }
+
+    }
+}

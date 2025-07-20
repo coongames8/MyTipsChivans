@@ -1,0 +1,260 @@
+.payment-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.payment-glass {
+  width: 100%;
+  max-width: 800px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  padding: 2rem;
+  color: white;
+}
+
+.payment-title {
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+  color: white;
+  position: relative;
+
+  &::after {
+    content: '';
+    display: block;
+    width: 80px;
+    height: 3px;
+    background: var(--neon-blue);
+    margin: 10px auto 0;
+    border-radius: 3px;
+  }
+}
+
+.method-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  justify-content: center;
+
+  .method-option {
+    padding: 0.8rem 1.5rem;
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+
+    input {
+      display: none;
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    &.active {
+      background: rgba(0, 119, 255, 0.3);
+      border-color: rgba(0, 119, 255, 0.4);
+      font-weight: 500;
+    }
+  }
+}
+
+.plan-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+
+  .plan-option {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    input {
+      display: none;
+    }
+
+    .plan-label {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .plan-price {
+      font-weight: 600;
+      color: var(--neon-blue);
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    &.active {
+      background: rgba(0, 119, 255, 0.2);
+      border-color: var(--neon-blue);
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 119, 255, 0.2);
+    }
+  }
+}
+
+.crypto-details {
+  margin-top: 2rem;
+
+  h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.2rem;
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    .glass-select {
+      width: 100%;
+      padding: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+
+      option {
+        background: rgba(0, 0, 0, 0.8);
+      }
+    }
+  }
+
+  .payment-info {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+
+    p {
+      margin: 0.5rem 0;
+      display: flex;
+      justify-content: space-between;
+
+      span {
+        font-weight: 500;
+        color: var(--neon-blue);
+        word-break: break-all;
+        text-align: right;
+        margin-left: 1rem;
+      }
+    }
+  }
+
+  .address-copy {
+    display: flex;
+    gap: 0.5rem;
+
+    .glass-input {
+      flex: 1;
+      padding: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: white;
+      font-size: 0.9rem;
+    }
+
+    .copy-btn {
+      width: 50px;
+      background: rgba(0, 119, 255, 0.2);
+      border: 1px solid rgba(0, 119, 255, 0.3);
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: rgba(0, 119, 255, 0.3);
+      }
+
+      .icon {
+        font-size: 1.2rem;
+      }
+    }
+  }
+}
+
+.mpesa-payment {
+  margin-top: 2rem;
+  text-align: center;
+
+  h3 {
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+  }
+
+  .paystack-btn {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--neon-blue), #0066ff);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 119, 255, 0.3);
+
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0, 119, 255, 0.4);
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .payment-container {
+    padding: 1rem;
+  }
+
+  .payment-glass {
+    padding: 1.5rem;
+  }
+
+  .plan-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .method-selector {
+    flex-direction: column;
+    align-items: stretch;
+
+    .method-option {
+      text-align: center;
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# Allow all bots
+User-agent: *
+Disallow:
+
+# Specify the sitemap location
+Sitemap: https://mytips.onrender.com/sitemap.xml
+
+# (Optional) Restrict access to certain areas
+Disallow: /admin/
+Disallow: /admin/tips/
+Disallow: /users/
+Disallow: /users-edit/

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="/favicon.ico" />
+  <!--Include favicon links for multiple resolutions-->
+  <link rel="icon" type="image/png" sizes="32x32" href="/logo32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/logo16.png" />
+
+  <link rel="apple-touch-icon" href="/logo192.png" />
+  <link rel="manifest" href="/manifest.json" crossorigin="anonymous" />
+  <link rel="shortcut icon" type="image/x-icon" href="/logo512.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#00BFFF">
+  <meta name="description" content="Get all the latest ✓Fixed VIP Tips ✓Football Predictions, ✓Latest Football Betting Odds and livescores, results & fixtures for all leagues and competitions, including the Premier League, Championship and across the world." />
+  <meta name="keywords" content="Football Predictions, Betting Odds, Live Scores, Live Sports, Football Results, Football Fixtures, Football Today, Premier League, Championship, Super Sports, Laliga, Bundesliga, Serie A">
+  <meta name="author" content="MyTips">
+  <link rel="canonical" href="/" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="MyTips" />
+  <meta property="og:description" content="Get all the latest ✓Fixed VIP Tips ✓Football Predictions, ✓Latest Football Betting Odds and livescores, results & fixtures for all leagues and competitions." />
+  <meta property="og:image" content="/logo512.png" />
+  <meta property="og:url" content="https://mytips.onrender.com" />
+  <meta property="og:type" content="website" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MyTips" />
+  <meta name="twitter:description" content="Get all the latest ✓Fixed VIP Tips ✓Football Predictions, ✓Latest Football Betting Odds and livescores, results & fixtures for all leagues and competitions." />
+  <meta name="twitter:image" content="/logo512.png" />
+
+  <!-- iOS -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="MyTips" />
+
+  <!--Add icons for various Apple device sizes-->
+  <link rel="apple-touch-icon" sizes="120x120" href="/logo120.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/logo152.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/logo180.png" />
+
+  <!--Control how search engines index your page-->
+  <meta name="robots" content="index, follow" />
+
+  <!--If your site supports multiple languages, add alternate links-->
+  <link rel="alternate" href="https://mytips.onrender.com" hreflang="en" />
+  <title>MyTips</title>
+  <script src="https://www.paypalobjects.com/donate/sdk/donate-sdk.js" charset="UTF-8"></script>
+  <meta name="google-adsense-account" content="ca-pub-9576945242972545">
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(registration => {}).catch(error => {
+          console.error('Service Worker registration failed:', error);
+        });
+    }
+  </script>
+  <script type="text/jsx" src='https://code.jquery.com/jquery-3.2.1.min.js'></script>
+  <script type="text/jsx" src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+  <script type="text/jsx" src='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js'></script>
+</body>
+
+</html>

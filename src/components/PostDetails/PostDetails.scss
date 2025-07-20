@@ -1,0 +1,218 @@
+.glass-panel {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+    padding: 25px;
+    color: white;
+    position: sticky;
+    right: 0;
+    width: 100%;
+    max-width: 350px;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+
+    &.active {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      max-height: 80vh;
+      overflow-y: auto;
+
+      .close-icon {
+        display: block;
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        cursor: pointer;
+        color: white;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        padding: 5px;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+          transform: rotate(90deg);
+        }
+      }
+    }
+  }
+
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+
+    .avatar-container {
+      position: relative;
+
+      .avatar {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .premium-badge {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(135deg, #ffd700, #ff9900);
+        color: #000;
+        font-size: 0.7rem;
+        font-weight: bold;
+        padding: 3px 8px;
+        border-radius: 10px;
+      }
+    }
+
+    .match-info {
+      flex: 1;
+
+      .match-date {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 500;
+      }
+
+      .match-time {
+        margin: 5px 0;
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .odds-chip {
+        display: inline-block;
+        background: rgba(0, 119, 255, 0.2);
+        border: 1px solid rgba(0, 119, 255, 0.3);
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+      }
+    }
+  }
+
+  .match-details {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+
+    .team-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+
+      .team-name {
+        font-weight: 500;
+        font-size: 1.1rem;
+      }
+
+      .team-score {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+      }
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 5px 0;
+      border: none;
+    }
+  }
+
+  .prediction-section {
+    margin-bottom: 20px;
+
+    .prediction-chip {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(0, 255, 170, 0.1);
+      border: 1px solid rgba(0, 255, 170, 0.2);
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-weight: 500;
+
+      .prediction-icon {
+        margin-right: 8px;
+        color: var(--neon-blue);
+        font-size: 1.2rem;
+      }
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+
+    .glass-btn {
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(5px);
+
+      &.premium-btn {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 153, 0, 0.2));
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        color: gold;
+
+        &:hover {
+          background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 153, 0, 0.3));
+          transform: translateY(-2px);
+        }
+      }
+
+      &.edit-btn {
+        background: rgba(0, 119, 255, 0.2);
+        border: 1px solid rgba(0, 119, 255, 0.3);
+        color: white;
+
+        &:hover {
+          background: rgba(0, 119, 255, 0.3);
+          transform: translateY(-2px);
+        }
+      }
+    }
+  }
+
+  @media (max-width: 576px) {
+    .glass-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      border-radius: 0;
+      z-index: 1000;
+      transform: none;
+
+      .close-icon {
+        display: block !important;
+      }
+    }
+  }
