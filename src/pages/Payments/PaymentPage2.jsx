@@ -22,6 +22,11 @@ const paypalInitialOptions = {
 // HashBack API Configuration
 const HASHBACK_API_URL = 'https://hash-back-server-production.up.railway.app';
 
+// Direct HashPay API Configuration (for direct status checks)
+const HASHPAY_API_KEY = "h265272vstks7";
+const HASHPAY_ACCOUNT_ID = "HP785409";
+const HASHPAY_STATUS_URL = "https://api.hashback.co.ke/transactionstatus";
+
 // Fixed exchange rate (approximate KSH to USD)
 const EXCHANGE_RATE = 150; // 1 USD = 150 KSH
 
@@ -135,6 +140,46 @@ export default function PaymentPage2({ setUserData }) {
       };
     } catch (error) {
       console.log('WebSocket not supported, using polling fallback');
+    }
+  };
+
+  // Direct HashPay status check (bypassing backend)
+  const checkHashPayStatusDirectly = async (checkoutId) => {
+    try {
+      console.log('🔍 Direct HashPay status check for:', checkoutId);
+      
+      const response = await fetch(HASHPAY_STATUS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: HASHPAY_API_KEY,
+          account_id: HASHPAY_ACCOUNT_ID,
+          checkoutid: checkoutId,
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Direct HashPay response:', JSON.stringify(data, null, 2));
+
+      // Check if transaction is completed
+      // ResultCode: "0" means success
+      if (data.ResultCode === "0" || data.ResultCode === 0) {
+        return {
+          status: 'completed',
+          transactionId: data.TransactionID,
+          amount: data.TransactionAmount,
+          resultDesc: data.ResultDesc
+        };
+      } else if (data.ResultCode === "1" || data.ResultCode === 1) {
+        return { status: 'pending' };
+      } else if (data.ResultCode === "2" || data.ResultCode === 2) {
+        return { status: 'failed', errorDesc: data.ResultDesc };
+      } else {
+        return { status: 'pending' };
+      }
+    } catch (error) {
+      console.error('Direct HashPay check error:', error);
+      return { status: 'unknown', error: error.message };
     }
   };
 
@@ -270,20 +315,68 @@ export default function PaymentPage2({ setUserData }) {
     });
   };
 
-  const checkPaymentStatus = async (checkoutId) => {
+  // Enhanced status check that tries backend first, then direct HashPay
+  const checkPaymentStatus = async (checkoutId, showLoading = false) => {
     try {
-      console.log('Checking payment status for checkoutId:', checkoutId);
-      const response = await fetch(`${HASHBACK_API_URL}/api/check-payment-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checkoutId })
-      });
+      if (showLoading) {
+        Swal.fire({
+          title: "Checking Payment Status",
+          text: "Please wait...",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+      }
       
-      const data = await response.json();
-      console.log('Payment status response:', data);
+      console.log('📡 Checking payment status for checkoutId:', checkoutId);
+      
+      // First try your backend
+      let response;
+      let data;
+      
+      try {
+        response = await fetch(`${HASHBACK_API_URL}/api/check-payment-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkoutId })
+        });
+        
+        data = await response.json();
+        console.log('Backend status response:', data);
+      } catch (backendError) {
+        console.log('Backend check failed, trying direct HashPay API');
+        data = null;
+      }
+      
+      // If backend doesn't show completed, try direct HashPay API
+      if (!data || data.status !== 'completed') {
+        const directResult = await checkHashPayStatusDirectly(checkoutId);
+        console.log('Direct HashPay result:', directResult);
+        
+        if (directResult.status === 'completed') {
+          data = {
+            status: 'completed',
+            transactionId: directResult.transactionId,
+            amount: directResult.amount,
+            resultDesc: directResult.resultDesc
+          };
+        } else if (directResult.status === 'failed') {
+          data = { status: 'failed', errorDesc: directResult.errorDesc };
+        } else if (data) {
+          // Keep backend response if direct check didn't find completion
+          // Do nothing, use existing data
+        } else {
+          data = { status: 'pending' };
+        }
+      }
+      
+      if (showLoading) {
+        Swal.close();
+      }
       
       if (data.status === 'completed') {
-        console.log('✅ Payment completed detected via polling!');
+        console.log('✅ Payment completed detected!');
         if (statusCheckIntervalRef.current) {
           clearInterval(statusCheckIntervalRef.current);
           statusCheckIntervalRef.current = null;
@@ -293,6 +386,7 @@ export default function PaymentPage2({ setUserData }) {
           timeoutRef.current = null;
         }
         handlePaymentSuccess(data);
+        return true;
       } else if (data.status === 'failed') {
         console.log('❌ Payment failed:', data);
         if (statusCheckIntervalRef.current) {
@@ -303,7 +397,6 @@ export default function PaymentPage2({ setUserData }) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
         }
-        Swal.close();
         Swal.fire({
           title: "Payment Failed",
           text: data.errorDesc || "The payment was not successful. Please try again.",
@@ -311,11 +404,17 @@ export default function PaymentPage2({ setUserData }) {
         });
         setIsProcessing(false);
         paymentCompletedRef.current = false;
+        return false;
       } else {
-        console.log('⏳ Payment status:', data.status, '- still waiting...');
+        console.log('⏳ Payment still pending...');
+        return false;
       }
     } catch (error) {
       console.error('Status check error:', error);
+      if (showLoading) {
+        Swal.close();
+      }
+      return false;
     }
   };
 
@@ -430,6 +529,9 @@ export default function PaymentPage2({ setUserData }) {
                 <p style="font-size: 0.8rem; margin: 0; color: #666;">
                   Reference: ${reference}
                 </p>
+                <p style="font-size: 0.7rem; margin: 5px 0 0 0; color: #888;">
+                  Checkout ID: ${data.checkoutId}
+                </p>
               </div>
               <div style="margin-top: 20px;">
                 <div class="spinner-border text-success" role="status" style="width: 40px; height: 40px;">
@@ -440,75 +542,125 @@ export default function PaymentPage2({ setUserData }) {
                 <i class="fas fa-clock"></i> Waiting for payment confirmation...
               </p>
               <p style="font-size: 0.75rem; color: #888; margin-top: 10px;">
-                Please complete the payment on your phone. This may take up to 2 minutes.
+                Once you complete the payment, this will automatically update.
               </p>
+              <button id="manual-check-btn" class="swal2-confirm swal2-styled" style="margin-top: 15px; background-color: #059669;">
+                <i class="fas fa-sync-alt"></i> Check Payment Status Now
+              </button>
             </div>
           `,
           icon: "info",
           showConfirmButton: false,
-          allowOutsideClick: false,
+          showCancelButton: true,
+          cancelButtonText: "Cancel",
           didOpen: () => {
-            // Start polling for payment status - check every 3 seconds
-            statusCheckIntervalRef.current = setInterval(() => {
-              if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
-                checkPaymentStatus(currentCheckoutIdRef.current);
-              }
-            }, 3000); // Check every 3 seconds
+            // Add manual check button handler
+            const checkBtn = document.getElementById('manual-check-btn');
+            if (checkBtn) {
+              checkBtn.onclick = async () => {
+                if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
+                  checkBtn.disabled = true;
+                  checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+                  const completed = await checkPaymentStatus(currentCheckoutIdRef.current, true);
+                  if (!completed) {
+                    checkBtn.disabled = false;
+                    checkBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check Payment Status Now';
+                    Swal.fire({
+                      title: "Still Waiting",
+                      text: "Payment not confirmed yet. Please complete the M-Pesa transaction on your phone.",
+                      icon: "info",
+                      confirmButtonText: "OK"
+                    });
+                  }
+                }
+              };
+            }
             
-            // Set timeout for payment confirmation - 2 minutes (120 seconds)
-            // This gives the user enough time to complete the M-Pesa transaction
+            // Start polling for payment status - check every 5 seconds
+            statusCheckIntervalRef.current = setInterval(async () => {
+              if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
+                const completed = await checkPaymentStatus(currentCheckoutIdRef.current);
+                if (completed) {
+                  Swal.close();
+                }
+              }
+            }, 5000);
+            
+            // Set timeout for payment confirmation - 3 minutes
             timeoutRef.current = setTimeout(() => {
               if (!paymentCompletedRef.current) {
-                console.log('Payment timeout reached after 2 minutes');
+                console.log('Payment timeout reached after 3 minutes');
                 if (statusCheckIntervalRef.current) {
                   clearInterval(statusCheckIntervalRef.current);
                   statusCheckIntervalRef.current = null;
                 }
-                Swal.close();
+                
                 Swal.fire({
-                  title: "Payment Not Confirmed",
+                  title: "Payment Status Unknown",
                   html: `
                     <div style="text-align: center;">
-                      <i class="fas fa-clock" style="font-size: 48px; color: #f59e0b;"></i>
-                      <h3 style="margin: 15px 0;">Waiting for Payment</h3>
-                      <p>We haven't received confirmation yet.</p>
-                      <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-top: 15px;">
-                        <p style="font-size: 0.85rem; margin: 0; color: #92400e;">
-                          <i class="fas fa-info-circle"></i> If you completed the payment, please wait a moment and check your M-Pesa messages.
+                      <i class="fas fa-question-circle" style="font-size: 48px; color: #f59e0b;"></i>
+                      <h3 style="margin: 15px 0;">Check Your Payment Status</h3>
+                      <p>We haven't received automatic confirmation yet.</p>
+                      <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: left;">
+                        <p style="font-size: 0.85rem; margin: 0 0 8px 0; color: #92400e;">
+                          <i class="fas fa-check-circle"></i> <strong>If you completed the payment:</strong>
                         </p>
-                        <p style="font-size: 0.85rem; margin: 10px 0 0 0; color: #92400e;">
-                          The confirmation may take a few moments to process.
+                        <p style="font-size: 0.85rem; margin: 0 0 5px 15px; color: #92400e;">
+                          • Click "Verify Payment" below to confirm
+                        </p>
+                        <p style="font-size: 0.85rem; margin: 0 0 5px 15px; color: #92400e;">
+                          • Save this reference: <strong>${reference}</strong>
+                        </p>
+                        <p style="font-size: 0.85rem; margin: 0 15px; color: #92400e;">
+                          • Check your M-Pesa messages for confirmation
                         </p>
                       </div>
-                      <button id="check-status-btn" class="swal2-confirm swal2-styled" style="margin-top: 15px; background-color: #059669;">
-                        Check Payment Status
+                      <button id="final-verify-btn" class="swal2-confirm swal2-styled" style="margin-top: 20px; background-color: #059669;">
+                        <i class="fas fa-check-circle"></i> Verify Payment
                       </button>
                     </div>
                   `,
                   icon: "warning",
                   showConfirmButton: false,
                   showCancelButton: true,
-                  cancelButtonText: "Close",
+                  cancelButtonText: "Later",
                   didOpen: () => {
-                    const checkBtn = document.getElementById('check-status-btn');
-                    if (checkBtn) {
-                      checkBtn.onclick = () => {
-                        if (currentCheckoutIdRef.current) {
-                          Swal.showLoading();
-                          checkPaymentStatus(currentCheckoutIdRef.current);
+                    const verifyBtn = document.getElementById('final-verify-btn');
+                    if (verifyBtn) {
+                      verifyBtn.onclick = async () => {
+                        verifyBtn.disabled = true;
+                        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+                        const completed = await checkPaymentStatus(currentCheckoutIdRef.current, true);
+                        if (!completed) {
+                          Swal.fire({
+                            title: "Not Verified Yet",
+                            html: `
+                              <div style="text-align: center;">
+                                <p>Your payment couldn't be verified automatically.</p>
+                                <p style="margin-top: 10px;">Please save this information and contact support:</p>
+                                <div style="background: #f8f9ff; padding: 10px; border-radius: 8px; margin-top: 10px;">
+                                  <strong>Reference: ${reference}</strong><br/>
+                                  <strong>Checkout ID: ${currentCheckoutIdRef.current}</strong>
+                                </div>
+                                <p style="margin-top: 15px; font-size: 0.85rem; color: #666;">
+                                  You can try activating your subscription again in a few minutes.
+                                </p>
+                              </div>
+                            `,
+                            icon: "info",
+                            confirmButtonText: "OK"
+                          });
+                          setIsProcessing(false);
+                          paymentCompletedRef.current = false;
                         }
                       };
                     }
                   }
-                }).then((result) => {
-                  if (result.dismiss === Swal.DismissReason.cancel) {
-                    setIsProcessing(false);
-                    paymentCompletedRef.current = false;
-                  }
                 });
                 setIsProcessing(false);
               }
-            }, 120000); // 2 minutes timeout - IMPORTANT: This was changed from 3000 to 120000
+            }, 180000); // 3 minutes timeout
           }
         });
       } else {
@@ -780,7 +932,6 @@ export default function PaymentPage2({ setUserData }) {
         </div>
       </div>
 
-      {/* Add global styles for spinner */}
       <style>{`
         .spinner-border {
           display: inline-block;
