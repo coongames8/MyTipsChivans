@@ -22,11 +22,16 @@ const paypalInitialOptions = {
 // HashBack API Configuration
 const HASHBACK_API_URL = 'https://hash-back-server-production.up.railway.app';
 
+// Direct HashPay API Configuration (for direct status checks when backend fails)
+const HASHPAY_API_KEY = "h265272vstks7";
+const HASHPAY_ACCOUNT_ID = "HP785409";
+const HASHPAY_STATUS_URL = "https://api.hashback.co.ke/transactionstatus";
+
 // Fixed exchange rate (approximate KSH to USD)
-const EXCHANGE_RATE = 150; // 1 USD = 150 KSH
+const EXCHANGE_RATE = 150;
 
 export default function PaymentPage2({ setUserData }) {
-  const { price, setPrice } = useContext(PriceContext); // price is always in KSH
+  const { price, setPrice } = useContext(PriceContext);
   const { currentUser } = useContext(AuthContext);
   const [paymentType, setPaymentType] = useState("mpesa");
   const [currenciesArr, setCurrenciesArr] = useState(null);
@@ -46,14 +51,11 @@ export default function PaymentPage2({ setUserData }) {
   const paymentCompletedRef = useRef(false);
   const timeoutRef = useRef(null);
 
-  // Payment methods
   const paymentMethods = [
     { id: "mpesa", label: "M-Pesa 📱" },
     { id: "crypto", label: "Crypto ₿" },
-    /*{ id: "paypal", label: "PayPal 💳" },*/
   ];
 
-  // All prices stored in KSH for PriceContext
   const subscriptionPlans = {
     mpesa: [
       { id: "daily", value: 1, label: "Daily VIP", price: "KSH 1" },
@@ -74,20 +76,12 @@ export default function PaymentPage2({ setUserData }) {
     ],
   };
 
-  // WebSocket setup for real-time payment confirmation
   useEffect(() => {
     setupWebSocket();
-    
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (statusCheckIntervalRef.current) {
-        clearInterval(statusCheckIntervalRef.current);
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (wsRef.current) wsRef.current.close();
+      if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
@@ -100,7 +94,7 @@ export default function PaymentPage2({ setUserData }) {
       wsRef.current = new WebSocket('wss://hash-back-server-production.up.railway.app');
       
       wsRef.current.onopen = () => {
-        console.log('WebSocket connected for payment');
+        console.log('WebSocket connected');
         if (currentCheckoutIdRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'register',
@@ -112,54 +106,66 @@ export default function PaymentPage2({ setUserData }) {
       wsRef.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('WebSocket message received:', message);
+          console.log('WebSocket message:', message);
           
           if (message.type === 'payment_completed') {
             console.log('✅ Payment completed via WebSocket!');
             handlePaymentSuccess(message.data);
-          } else if (message.type === 'registered') {
-            console.log('✅ Registered for checkout:', message.checkoutId);
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          console.error('WebSocket parse error:', error);
         }
       };
       
-      wsRef.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-      
-      wsRef.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        setTimeout(setupWebSocket, 5000);
-      };
+      wsRef.current.onerror = (error) => console.error('WebSocket error:', error);
+      wsRef.current.onclose = () => setTimeout(setupWebSocket, 5000);
     } catch (error) {
-      console.log('WebSocket not supported, using polling fallback');
+      console.log('WebSocket failed:', error);
     }
   };
 
-  // Currency conversion helpers
-  const kshToUsd = (ksh) => (ksh / EXCHANGE_RATE).toFixed(2);
-  const usdToKsh = (usd) => Math.round(usd * EXCHANGE_RATE);
+  // Direct HashPay status check
+  const checkHashPayStatusDirectly = async (checkoutId) => {
+    try {
+      console.log('🔍 Direct HashPay status check for:', checkoutId);
+      
+      const response = await fetch(HASHPAY_STATUS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: HASHPAY_API_KEY,
+          account_id: HASHPAY_ACCOUNT_ID,
+          checkoutid: checkoutId,
+        }),
+      });
 
-  // Get current price in USD for PayPal/Crypto
-  const getCurrentPriceInUsd = () => {
-    return kshToUsd(price);
+      const data = await response.json();
+      console.log('Direct HashPay response:', data);
+
+      if (data.ResultCode === "0" || data.ResultCode === 0) {
+        return {
+          status: 'completed',
+          transactionId: data.TransactionID,
+          amount: data.TransactionAmount,
+        };
+      } else if (data.ResultCode === "2" || data.ResultCode === 2) {
+        return { status: 'failed', errorDesc: data.ResultDesc };
+      }
+      return { status: 'pending' };
+    } catch (error) {
+      console.error('Direct HashPay error:', error);
+      return { status: 'unknown' };
+    }
   };
 
-  // Format phone number for HashBack
+  const kshToUsd = (ksh) => (ksh / EXCHANGE_RATE).toFixed(2);
+  const getCurrentPriceInUsd = () => kshToUsd(price);
+
   const formatPhoneNumberForHashBack = (phone) => {
     let p = phone.toString().replace(/\D/g, "");
-    
-    if (p.startsWith("0")) {
-      return p;
-    }
-    if (p.startsWith("7") || p.startsWith("1")) {
-      return "0" + p;
-    }
-    if (p.startsWith("254")) {
-      return "0" + p.substring(3);
-    }
+    if (p.startsWith("0")) return p;
+    if (p.startsWith("7") || p.startsWith("1")) return "0" + p;
+    if (p.startsWith("254")) return "0" + p.substring(3);
     return p;
   };
 
@@ -176,7 +182,6 @@ export default function PaymentPage2({ setUserData }) {
     return digits.startsWith("07") && digits.length === 10;
   };
 
-  // Initialize price based on payment type
   useEffect(() => {
     const defaultPlan = subscriptionPlans[paymentType][0];
     setPrice(defaultPlan.value);
@@ -213,37 +218,26 @@ export default function PaymentPage2({ setUserData }) {
         window.location.pathname = "/";
       });
     } catch (error) {
-      Swal.fire({
-        title: "Error",
-        text: error.message,
-        icon: "error"
-      });
+      Swal.fire({ title: "Error", text: error.message, icon: "error" });
     }
   };
 
   const handlePaymentSuccess = (data) => {
-    // Prevent duplicate success messages
     if (paymentCompletedRef.current) {
       console.log('Payment already processed, skipping duplicate');
       return;
     }
     
-    console.log('🎉 Processing payment success:', data);
+    console.log('🎉 Payment success:', data);
     paymentCompletedRef.current = true;
     
-    // Clear all intervals and timeouts
-    if (statusCheckIntervalRef.current) {
-      clearInterval(statusCheckIntervalRef.current);
-      statusCheckIntervalRef.current = null;
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
+    if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     
     Swal.close();
     setIsProcessing(false);
     
+    // Show success message
     Swal.fire({
       title: "Payment Successful! 🎉",
       html: `
@@ -252,15 +246,8 @@ export default function PaymentPage2({ setUserData }) {
           <h3 style="margin: 15px 0;">KSh ${data.amount || price} Paid</h3>
           <p>Your VIP subscription payment was successful!</p>
           <div style="background: #f8f9ff; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: left;">
-            <p style="margin: 5px 0; font-size: 0.85rem;">
-              <strong>Transaction ID:</strong> ${data.transactionId || data.TransactionID || 'N/A'}
-            </p>
-            <p style="margin: 5px 0; font-size: 0.85rem;">
-              <strong>Reference:</strong> ${data.reference || currentReferenceRef.current || 'N/A'}
-            </p>
-            <p style="margin: 5px 0; font-size: 0.85rem;">
-              <strong>Checkout ID:</strong> ${data.checkoutId || currentCheckoutIdRef.current || 'N/A'}
-            </p>
+            <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${data.transactionId || 'N/A'}</p>
+            <p style="margin: 5px 0;"><strong>Reference:</strong> ${data.reference || currentReferenceRef.current || 'N/A'}</p>
           </div>
         </div>
       `,
@@ -280,102 +267,71 @@ export default function PaymentPage2({ setUserData }) {
           title: "Checking Payment Status",
           text: "Please wait...",
           allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
+          didOpen: () => Swal.showLoading()
         });
       }
       
-      console.log('Checking payment status for checkoutId:', checkoutId);
-      const response = await fetch(`${HASHBACK_API_URL}/api/check-payment-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ checkoutId })
-      });
+      console.log('Checking status for:', checkoutId);
       
-      const data = await response.json();
-      console.log('Full payment status response:', data);
-      
-      if (showLoading) {
-        Swal.close();
+      // Try backend first
+      let data = null;
+      try {
+        const response = await fetch(`${HASHBACK_API_URL}/api/check-payment-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ checkoutId })
+        });
+        data = await response.json();
+        console.log('Backend status:', data);
+      } catch (err) {
+        console.log('Backend check failed');
       }
       
-      if (data.status === 'completed') {
-        console.log('✅ Payment completed detected via polling!');
-        if (statusCheckIntervalRef.current) {
-          clearInterval(statusCheckIntervalRef.current);
-          statusCheckIntervalRef.current = null;
+      // If backend doesn't show completed, try direct HashPay
+      if (!data || data.status !== 'completed') {
+        const directResult = await checkHashPayStatusDirectly(checkoutId);
+        if (directResult.status === 'completed') {
+          data = directResult;
         }
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
+      }
+      
+      if (showLoading) Swal.close();
+      
+      if (data?.status === 'completed') {
         handlePaymentSuccess(data);
         return true;
-      } else if (data.status === 'failed') {
-        console.log('❌ Payment failed:', data);
-        if (statusCheckIntervalRef.current) {
-          clearInterval(statusCheckIntervalRef.current);
-          statusCheckIntervalRef.current = null;
-        }
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        Swal.fire({
-          title: "Payment Failed",
-          text: data.errorDesc || "The payment was not successful. Please try again.",
-          icon: "error"
-        });
+      } else if (data?.status === 'failed') {
+        Swal.fire({ title: "Payment Failed", text: "Please try again.", icon: "error" });
         setIsProcessing(false);
         paymentCompletedRef.current = false;
         return false;
-      } else {
-        console.log('⏳ Payment status:', data.status, '- still waiting...');
-        console.log('Full data for debugging:', JSON.stringify(data, null, 2));
-        return false;
       }
+      return false;
     } catch (error) {
       console.error('Status check error:', error);
-      if (showLoading) {
-        Swal.close();
-      }
+      if (showLoading) Swal.close();
       return false;
     }
   };
 
-  // Handle M-Pesa payment with HashBack
   const handleMpesaPayment = async () => {
     if (isProcessing) return;
-    
-    // Reset payment completed flag
     paymentCompletedRef.current = false;
     
-    // Show phone number input modal
     const { value: phoneNumber } = await Swal.fire({
       title: "Enter M-Pesa Phone Number",
-      html: `
-        <div style="text-align: center; margin-bottom: 15px;">
-          <i class="fas fa-mobile-alt" style="font-size: 48px; color: #065f46;"></i>
-        </div>
-        <p style="margin-bottom: 15px;">Enter the M-Pesa phone number to receive the payment prompt.</p>
-        <p style="font-size: 0.8rem; color: #666;">Format: 07XXXXXXXX (10 digits)</p>
-      `,
+      html: `<div style="text-align:center;"><i class="fas fa-mobile-alt" style="font-size:48px;color:#065f46;"></i>
+        <p style="margin:15px 0;">Enter M-Pesa number to receive payment prompt.</p>
+        <p style="font-size:0.8rem;color:#666;">Format: 07XXXXXXXX (10 digits)</p></div>`,
       input: "tel",
       inputPlaceholder: "e.g., 0712345678",
       showCancelButton: true,
       confirmButtonText: "Continue",
       cancelButtonText: "Cancel",
       confirmButtonColor: "#059669",
-      cancelButtonColor: "#6c757d",
-      reverseButtons: true,
       inputValidator: (value) => {
-        if (!value) {
-          return "Phone number is required!";
-        }
-        if (!isValidPhoneNumber(value)) {
-          return "Please enter a valid Kenyan phone number (e.g., 0712345678)";
-        }
+        if (!value) return "Phone number is required!";
+        if (!isValidPhoneNumber(value)) return "Enter valid Kenyan number (e.g., 0712345678)";
         return null;
       }
     });
@@ -385,27 +341,12 @@ export default function PaymentPage2({ setUserData }) {
     const formattedPhone = formatPhoneNumberForHashBack(phoneNumber);
     const displayPhone = formatPhoneForDisplay(phoneNumber);
     
-    // Show loading
-    Swal.fire({
-      title: "Initiating Payment",
-      text: "Connecting to M-Pesa...",
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-    
+    Swal.fire({ title: "Initiating Payment", text: "Connecting to M-Pesa...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     setIsProcessing(true);
 
     try {
       const reference = `VIP-${getSubscriptionPeriod()}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
       currentReferenceRef.current = reference;
-      
-      console.log('Initiating payment with:', {
-        amount: price,
-        phone: formattedPhone,
-        reference: reference
-      });
       
       const response = await fetch(`${HASHBACK_API_URL}/api/initiate-payment`, {
         method: 'POST',
@@ -415,11 +356,7 @@ export default function PaymentPage2({ setUserData }) {
           phone: formattedPhone,
           reference: reference,
           userId: currentUser?.email || 'anonymous',
-          metadata: {
-            type: 'vip_subscription',
-            period: getSubscriptionPeriod(),
-            payment_method: 'mpesa'
-          }
+          metadata: { type: 'vip_subscription', period: getSubscriptionPeriod() }
         })
       });
 
@@ -429,49 +366,28 @@ export default function PaymentPage2({ setUserData }) {
       if (data.success && data.checkoutId) {
         currentCheckoutIdRef.current = data.checkoutId;
         
-        // Register with WebSocket if available
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'register',
-            checkoutId: data.checkoutId
-          }));
-          console.log('Registered checkout with WebSocket:', data.checkoutId);
-        } else {
-          console.log('WebSocket not ready, will rely on polling');
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'register', checkoutId: data.checkoutId }));
         }
         
         Swal.close();
         
-        // Show M-Pesa prompt with waiting indicator
+        // Show waiting modal with manual check option
         Swal.fire({
           title: "Check Your Phone",
           html: `
             <div style="text-align: center;">
               <i class="fas fa-mobile-alt" style="font-size: 48px; color: #065f46;"></i>
               <h3 style="margin: 15px 0;">Enter M-Pesa PIN</h3>
-              <p>Check your phone to authorize payment of <strong>KSH ${price}</strong></p>
+              <p>Check your phone and enter PIN to pay <strong>KSH ${price}</strong></p>
               <p style="margin-top: 10px;"><small>Phone: ${displayPhone}</small></p>
-              <div style="background: #f8f9ff; padding: 12px; border-radius: 8px; margin-top: 15px;">
-                <p style="font-size: 0.8rem; margin: 0; color: #666;">
-                  Reference: ${reference}
-                </p>
-                <p style="font-size: 0.8rem; margin: 5px 0 0 0; color: #666;">
-                  Checkout ID: ${data.checkoutId}
-                </p>
+              <div style="background: #f8f9ff; padding: 12px; border-radius: 8px; margin: 15px 0;">
+                <p style="font-size: 0.8rem; margin: 0;">Reference: ${reference}</p>
               </div>
-              <div style="margin-top: 20px;">
-                <div class="spinner-border text-success" role="status" style="width: 40px; height: 40px;">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              </div>
-              <p style="font-size: 0.85rem; color: #059669; margin-top: 15px;">
-                <i class="fas fa-clock"></i> Waiting for payment confirmation...
-              </p>
-              <p style="font-size: 0.75rem; color: #888; margin-top: 10px;">
-                If you completed the payment and don't see confirmation, click the button below.
-              </p>
-              <button id="manual-check-btn" class="swal2-confirm swal2-styled" style="margin-top: 10px; background-color: #059669;">
-                Check Payment Status
+              <div class="spinner-border" style="width:40px;height:40px;margin:20px auto;"></div>
+              <p style="color: #059669;"><i class="fas fa-clock"></i> Waiting for confirmation...</p>
+              <button id="manualCheckBtn" class="swal2-confirm swal2-styled" style="margin-top:15px;background:#059669;">
+                <i class="fas fa-sync-alt"></i> Check Status Now
               </button>
             </div>
           `,
@@ -480,153 +396,96 @@ export default function PaymentPage2({ setUserData }) {
           showCancelButton: true,
           cancelButtonText: "Cancel",
           didOpen: () => {
-            // Add manual check button handler
-            const checkBtn = document.getElementById('manual-check-btn');
+            const checkBtn = document.getElementById('manualCheckBtn');
             if (checkBtn) {
               checkBtn.onclick = async () => {
-                if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
-                  const completed = await checkPaymentStatus(currentCheckoutIdRef.current, true);
-                  if (!completed) {
-                    Swal.fire({
-                      title: "Not Confirmed Yet",
-                      text: "Your payment hasn't been confirmed yet. Please wait a moment or check your M-Pesa messages.",
-                      icon: "info",
-                      confirmButtonText: "OK"
-                    });
-                  }
+                checkBtn.disabled = true;
+                checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+                const completed = await checkPaymentStatus(currentCheckoutIdRef.current, true);
+                if (completed) {
+                  Swal.close();
+                } else {
+                  checkBtn.disabled = false;
+                  checkBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check Status Now';
+                  Swal.fire({ title: "Not Confirmed", text: "Payment not confirmed yet. Complete the transaction on your phone.", icon: "info", confirmButtonText: "OK" });
                 }
               };
             }
             
-            // Start polling for payment status - check every 5 seconds
+            // Poll every 5 seconds
             statusCheckIntervalRef.current = setInterval(async () => {
               if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
                 const completed = await checkPaymentStatus(currentCheckoutIdRef.current);
-                if (completed) {
-                  // Payment was successful, close this modal
-                  Swal.close();
-                }
+                if (completed) Swal.close();
               }
             }, 5000);
             
-            // Set timeout for payment confirmation - 3 minutes (180 seconds)
-            // Increased to 3 minutes to allow more time
+            // 3 minute timeout
             timeoutRef.current = setTimeout(() => {
               if (!paymentCompletedRef.current) {
-                console.log('Payment timeout reached after 3 minutes');
-                if (statusCheckIntervalRef.current) {
-                  clearInterval(statusCheckIntervalRef.current);
-                  statusCheckIntervalRef.current = null;
-                }
-                
-                // Don't auto-close, give user option to manually check
+                clearInterval(statusCheckIntervalRef.current);
                 Swal.fire({
-                  title: "Payment Status Unknown",
+                  title: "Still Waiting?",
                   html: `
-                    <div style="text-align: center;">
-                      <i class="fas fa-question-circle" style="font-size: 48px; color: #f59e0b;"></i>
-                      <h3 style="margin: 15px 0;">Payment Not Confirmed Yet</h3>
-                      <p>We haven't received confirmation of your payment.</p>
-                      <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: left;">
-                        <p style="font-size: 0.85rem; margin: 0 0 8px 0; color: #92400e;">
-                          <i class="fas fa-check-circle"></i> <strong>If you completed the payment:</strong>
-                        </p>
-                        <p style="font-size: 0.85rem; margin: 0 0 8px 15px; color: #92400e;">
-                          • The confirmation may be delayed. Click "Check Now" to verify.
-                        </p>
-                        <p style="font-size: 0.85rem; margin: 0 0 8px 15px; color: #92400e;">
-                          • Save the reference number above for support.
-                        </p>
-                        <p style="font-size: 0.85rem; margin: 0 15px; color: #92400e;">
-                          • Check your M-Pesa messages for the transaction confirmation.
-                        </p>
+                    <div style="text-align:center;">
+                      <i class="fas fa-question-circle" style="font-size:48px;color:#f59e0b;"></i>
+                      <h3>Payment Status Unknown</h3>
+                      <p>If you completed the payment, click verify below.</p>
+                      <div style="background:#fef3c7;padding:12px;border-radius:8px;margin:15px 0;">
+                        <p><strong>Reference: ${reference}</strong></p>
                       </div>
-                      <button id="final-check-btn" class="swal2-confirm swal2-styled" style="margin-top: 20px; background-color: #059669;">
-                        Check Payment Status Now
+                      <button id="verifyFinalBtn" class="swal2-confirm swal2-styled" style="background:#059669;">
+                        <i class="fas fa-check-circle"></i> Verify Payment
                       </button>
                     </div>
                   `,
                   icon: "warning",
                   showConfirmButton: false,
                   showCancelButton: true,
-                  cancelButtonText: "Cancel",
+                  cancelButtonText: "Close",
                   didOpen: () => {
-                    const finalCheckBtn = document.getElementById('final-check-btn');
-                    if (finalCheckBtn) {
-                      finalCheckBtn.onclick = async () => {
-                        if (currentCheckoutIdRef.current) {
-                          const completed = await checkPaymentStatus(currentCheckoutIdRef.current, true);
-                          if (!completed) {
-                            Swal.fire({
-                              title: "Still Not Confirmed",
-                              html: `
-                                <div style="text-align: center;">
-                                  <p>Your payment hasn't been confirmed yet.</p>
-                                  <p style="margin-top: 10px;">Please save this reference number and contact support:</p>
-                                  <div style="background: #f8f9ff; padding: 10px; border-radius: 8px; margin-top: 10px;">
-                                    <strong>Reference: ${reference}</strong>
-                                  </div>
-                                  <p style="margin-top: 15px; font-size: 0.85rem; color: #666;">
-                                    The payment may still be processed. You can try activating your subscription later.
-                                  </p>
-                                </div>
-                              `,
-                              icon: "info",
-                              confirmButtonText: "OK"
-                            });
-                          }
+                    const verifyBtn = document.getElementById('verifyFinalBtn');
+                    if (verifyBtn) {
+                      verifyBtn.onclick = async () => {
+                        verifyBtn.disabled = true;
+                        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+                        const completed = await checkPaymentStatus(currentCheckoutIdRef.current, true);
+                        if (!completed) {
+                          Swal.fire({
+                            title: "Not Verified",
+                            html: `Please save reference: <strong>${reference}</strong> and contact support.`,
+                            icon: "info",
+                            confirmButtonText: "OK"
+                          });
+                          setIsProcessing(false);
                         }
                       };
                     }
                   }
-                }).then((result) => {
-                  if (result.dismiss === Swal.DismissReason.cancel) {
-                    setIsProcessing(false);
-                    paymentCompletedRef.current = false;
-                  }
                 });
                 setIsProcessing(false);
               }
-            }, 180000); // 3 minutes timeout
+            }, 180000);
           }
         });
       } else {
-        throw new Error(data.error || data.message || "Initiation failed");
+        throw new Error(data.error || "Initiation failed");
       }
     } catch (error) {
       console.error('Payment error:', error);
-      Swal.fire({
-        title: "Payment Failed",
-        html: `
-          <div style="text-align: center;">
-            <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #dc2626;"></i>
-            <h3 style="margin: 15px 0;">Payment Failed</h3>
-            <p>${error.message || "Unable to initiate payment. Please try again."}</p>
-            <div style="background: #fef2f2; padding: 12px; border-radius: 8px; margin-top: 15px;">
-              <p style="font-size: 0.85rem; margin: 0; color: #991b1b;">
-                <i class="fas fa-info-circle"></i> Ensure your phone number is correct and you have sufficient M-Pesa balance.
-              </p>
-            </div>
-          </div>
-        `,
-        icon: "error",
-        confirmButtonText: "Try Again",
-        confirmButtonColor: "#059669"
-      });
+      Swal.fire({ title: "Payment Failed", text: error.message, icon: "error" });
       setIsProcessing(false);
       paymentCompletedRef.current = false;
     }
   };
 
-  // Crypto payment - use USD price
   const getCryptoAddress = async () => {
     const usdPrice = getCurrentPriceInUsd();
-    const params = {
+    const response = await npApi.createPayment({
       price_amount: parseFloat(usdPrice),
       price_currency: "usd",
       pay_currency: selectedCurrency.toLowerCase(),
-    };
-    const response = await npApi.createPayment(params);
+    });
     setPayAmount(response.pay_amount);
     setPayCurrency(response.pay_currency);
     setAddress(response.pay_address);
@@ -643,100 +502,55 @@ export default function PaymentPage2({ setUserData }) {
 
   useEffect(() => {
     const fetchCurrencies = async () => {
-      const response = await fetch(
-        "https://api.nowpayments.io/v1/merchant/coins",
-        {
-          headers: { "x-api-key": "K80YG02-W464QP0-QR7E9EZ-QFY3ZGQ" },
-        }
-      );
+      const response = await fetch("https://api.nowpayments.io/v1/merchant/coins", {
+        headers: { "x-api-key": "K80YG02-W464QP0-QR7E9EZ-QFY3ZGQ" },
+      });
       const data = await response.json();
       setCurrenciesArr(data.selectedCurrencies);
     };
-
     fetchCurrencies();
     if (paymentType === "crypto") getCryptoAddress();
   }, [selectedCurrency, price, paymentType]);
 
-  // Force PayPal buttons to re-render when price changes
   useEffect(() => {
-    if (paymentType === "paypal") {
-      setPaypalKey(prev => prev + 1);
-    }
+    if (paymentType === "paypal") setPaypalKey(prev => prev + 1);
   }, [price, paymentType]);
 
-  // Handle payment method change
   const handlePaymentMethodChange = (methodId) => {
     setPaymentType(methodId);
     setIsProcessing(false);
     paymentCompletedRef.current = false;
   };
 
-  // PayPal order creation
   const createPayPalOrder = (data, actions) => {
     const usdPrice = getCurrentPriceInUsd();
     return actions.order.create({
-      purchase_units: [
-        {
-          amount: {
-            value: usdPrice,
-            currency_code: "USD",
-          },
-          description: `${getSubscriptionPeriod()} VIP Subscription`,
-        },
-      ],
+      purchase_units: [{ amount: { value: usdPrice, currency_code: "USD" }, description: `${getSubscriptionPeriod()} VIP Subscription` }],
     });
   };
 
-  // PayPal approval handler
   const onPayPalApprove = (data, actions) => {
-    return actions.order.capture().then(function (details) {
-      console.log("PayPal payment completed:", details);
-      handleUpgrade();
-    });
+    return actions.order.capture().then(() => handleUpgrade());
   };
 
-  // PayPal error handler
   const onPayPalError = (err) => {
     console.error("PayPal error:", err);
-    Swal.fire({
-      title: "Payment Failed",
-      text: "PayPal payment failed. Please try again.",
-      icon: "error"
-    });
+    Swal.fire({ title: "Payment Failed", text: "Please try again.", icon: "error" });
   };
 
-  // Helper to display price based on payment type
-  const getDisplayPrice = () => {
-    if (paymentType === "mpesa") {
-      return `KSH ${price}`;
-    } else {
-      return `$${getCurrentPriceInUsd()}`;
-    }
-  };
+  const getDisplayPrice = () => paymentType === "mpesa" ? `KSH ${price}` : `$${getCurrentPriceInUsd()}`;
 
   return (
     <PayPalScriptProvider options={paypalInitialOptions}>
       <div className="payment-container">
         <AppHelmet title="Payment" location="/pay" />
-
         <div className="payment-glass">
           <h2 className="payment-title">Select Payment Method</h2>
 
           <div className="method-selector">
             {paymentMethods.map((method) => (
-              <label
-                key={method.id}
-                className={`method-option ${
-                  paymentType === method.id ? "active" : ""
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value={method.id}
-                  checked={paymentType === method.id}
-                  onChange={() => handlePaymentMethodChange(method.id)}
-                />
+              <label key={method.id} className={`method-option ${paymentType === method.id ? "active" : ""}`}>
+                <input type="radio" name="payment-method" value={method.id} checked={paymentType === method.id} onChange={() => handlePaymentMethodChange(method.id)} />
                 {method.label}
               </label>
             ))}
@@ -744,17 +558,8 @@ export default function PaymentPage2({ setUserData }) {
 
           <div className="plan-selector">
             {subscriptionPlans[paymentType].map((plan) => (
-              <label
-                key={plan.id}
-                className={`plan-option ${price === plan.value ? "active" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="subscription-plan"
-                  value={plan.value}
-                  checked={price === plan.value}
-                  onChange={() => setPrice(plan.value)}
-                />
+              <label key={plan.id} className={`plan-option ${price === plan.value ? "active" : ""}`}>
+                <input type="radio" name="subscription-plan" value={plan.value} checked={price === plan.value} onChange={() => setPrice(plan.value)} />
                 <span className="plan-label">{plan.label}</span>
                 <span className="plan-price">{plan.price}</span>
               </label>
@@ -764,96 +569,37 @@ export default function PaymentPage2({ setUserData }) {
           {paymentType === "crypto" ? (
             <div className="crypto-details">
               <h3>CRYPTO PAYMENT DETAILS</h3>
-
               <div className="form-group">
                 <label>Select Currency:</label>
-                <select
-                  value={selectedCurrency}
-                  onChange={(e) => setSelectedCurrency(e.target.value)}
-                  className="glass-select"
-                >
-                  {currenciesArr?.map((currency) => (
-                    <option key={currency} value={currency}>
-                      {currency}
-                    </option>
-                  ))}
+                <select value={selectedCurrency} onChange={(e) => setSelectedCurrency(e.target.value)} className="glass-select">
+                  {currenciesArr?.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
                 </select>
               </div>
-
               <div className="payment-info">
-                <p>
-                  Amount:{" "}
-                  <span>
-                    {payAmount} {payCurrency?.toUpperCase()}
-                  </span>
-                </p>
-                <p>
-                  Network: <span>{network?.toUpperCase()}</span>
-                </p>
-                <p>
-                  Address: <span>{address}</span>
-                </p>
+                <p>Amount: <span>{payAmount} {payCurrency?.toUpperCase()}</span></p>
+                <p>Network: <span>{network?.toUpperCase()}</span></p>
+                <p>Address: <span>{address}</span></p>
               </div>
-
               <div className="address-copy">
-                <input
-                  type="text"
-                  value={address || ""}
-                  readOnly
-                  ref={addressRef}
-                  className="glass-input"
-                />
-                <button onClick={handleCopy} className="copy-btn">
-                  {copied ? (
-                    <Check className="icon" />
-                  ) : (
-                    <CopyAll className="icon" />
-                  )}
-                </button>
+                <input type="text" value={address || ""} readOnly ref={addressRef} className="glass-input" />
+                <button onClick={handleCopy} className="copy-btn">{copied ? <Check className="icon" /> : <CopyAll className="icon" />}</button>
               </div>
             </div>
           ) : paymentType === "mpesa" ? (
             <div className="mpesa-payment">
-              <h3>
-                GET {getSubscriptionPeriod().toUpperCase()} VIP FOR {getDisplayPrice()}
-              </h3>
-              <button 
-                onClick={handleMpesaPayment} 
-                className="paystack-btn"
-                disabled={isProcessing}
-                style={{
-                  background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                  opacity: isProcessing ? 0.7 : 1,
-                  cursor: isProcessing ? "not-allowed" : "pointer"
-                }}
-              >
+              <h3>GET {getSubscriptionPeriod().toUpperCase()} VIP FOR {getDisplayPrice()}</h3>
+              <button onClick={handleMpesaPayment} className="paystack-btn" disabled={isProcessing} style={{ background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #059669 0%, #047857 100%)', cursor: isProcessing ? "not-allowed" : "pointer" }}>
                 <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-mobile-alt'}`} style={{ marginRight: '8px' }}></i>
                 {isProcessing ? "Processing..." : "Pay with M-Pesa"}
               </button>
             </div>
           ) : (
             <div className="paypal-payment">
-              <h3>
-                GET {getSubscriptionPeriod().toUpperCase()} VIP FOR {getDisplayPrice()}
-              </h3>
+              <h3>GET {getSubscriptionPeriod().toUpperCase()} VIP FOR {getDisplayPrice()}</h3>
               <div className="paypal-buttons-container">
-                <PayPalButtons
-                  key={paypalKey}
-                  style={{
-                    layout: "horizontal",
-                    color: "gold",
-                    shape: "pill",
-                    label: "pay"
-                  }}
-                  createOrder={createPayPalOrder}
-                  onApprove={onPayPalApprove}
-                  onError={onPayPalError}
-                  forceReRender={[price]}
-                />
+                <PayPalButtons key={paypalKey} style={{ layout: "horizontal", color: "gold", shape: "pill", label: "pay" }} createOrder={createPayPalOrder} onApprove={onPayPalApprove} onError={onPayPalError} forceReRender={[price]} />
               </div>
-              <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '14px', opacity: 0.8 }}>
-                Paying: {getDisplayPrice()} for {getSubscriptionPeriod()} VIP
-              </p>
+              <p style={{ textAlign: 'center', marginTop: '10px', fontSize: '14px', opacity: 0.8 }}>Paying: {getDisplayPrice()} for {getSubscriptionPeriod()} VIP</p>
             </div>
           )}
         </div>
@@ -869,11 +615,9 @@ export default function PaymentPage2({ setUserData }) {
           border-radius: 50%;
           animation: spinner-border 0.75s linear infinite;
         }
-        
         @keyframes spinner-border {
           to { transform: rotate(360deg); }
         }
-        
         .visually-hidden {
           position: absolute;
           width: 1px;
