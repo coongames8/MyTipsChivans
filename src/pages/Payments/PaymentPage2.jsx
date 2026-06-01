@@ -452,7 +452,7 @@ export default function PaymentPage2({ setUserData }) {
                 setIsProcessing(false);
                 paymentCompletedRef.current = false;
               }
-            }, 1100);
+            }, 3000);
           }
         });
       } else {
