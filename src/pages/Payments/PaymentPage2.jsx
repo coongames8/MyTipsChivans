@@ -41,7 +41,9 @@ export default function PaymentPage2({ setUserData }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const wsRef = useRef(null);
   const currentCheckoutIdRef = useRef(null);
+  const currentReferenceRef = useRef(null);
   const statusCheckIntervalRef = useRef(null);
+  const paymentCompletedRef = useRef(false);
 
   // Payment methods
   const paymentMethods = [
@@ -53,9 +55,9 @@ export default function PaymentPage2({ setUserData }) {
   // All prices stored in KSH for PriceContext
   const subscriptionPlans = {
     mpesa: [
-      { id: "daily", value: 200, label: "Daily VIP", price: "KSH 200" },
+      { id: "daily", value: 1, label: "Daily VIP", price: "KSH 1" },
       { id: "weekly", value: 700, label: "7 Days VIP", price: "KSH 700" },
-      { id: "monthly", value: 2000, label: "30 Days VIP", price: "KSH 2000" },
+      { id: "monthly", value: 10, label: "30 Days VIP", price: "KSH 10" },
       { id: "yearly", value: 7500, label: "1 Year VIP", price: "KSH 7500" },
     ],
     crypto: [
@@ -87,10 +89,20 @@ export default function PaymentPage2({ setUserData }) {
 
   const setupWebSocket = () => {
     try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      
       wsRef.current = new WebSocket('wss://hash-back-server-production.up.railway.app');
       
       wsRef.current.onopen = () => {
         console.log('WebSocket connected for payment');
+        if (currentCheckoutIdRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'register',
+            checkoutId: currentCheckoutIdRef.current
+          }));
+        }
       };
       
       wsRef.current.onmessage = (event) => {
@@ -100,6 +112,8 @@ export default function PaymentPage2({ setUserData }) {
           
           if (message.type === 'payment_completed') {
             handlePaymentSuccess(message.data);
+          } else if (message.type === 'registered') {
+            console.log('Registered for checkout:', message.checkoutId);
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -144,6 +158,14 @@ export default function PaymentPage2({ setUserData }) {
     return p;
   };
 
+  const formatPhoneForDisplay = (phone) => {
+    let p = phone.toString().replace(/\D/g, "");
+    if (p.startsWith("254")) return "0" + p.substring(3);
+    if (p.startsWith("0")) return p;
+    if (p.startsWith("7")) return "0" + p;
+    return p;
+  };
+
   const isValidPhoneNumber = (phone) => {
     const digits = phone.replace(/\D/g, "");
     return digits.startsWith("07") && digits.length === 10;
@@ -156,7 +178,7 @@ export default function PaymentPage2({ setUserData }) {
   }, [paymentType]);
 
   const getSubscriptionPeriod = () => {
-    if (price === 200 || price === 300) return "Daily";
+    if (price === 1 || price === 300) return "Daily";
     if (price === 700 || price === 1500) return "Weekly";
     if (price === 2000 || price === 2400) return "Monthly";
     return "Yearly";
@@ -194,13 +216,22 @@ export default function PaymentPage2({ setUserData }) {
     }
   };
 
-
   const handlePaymentSuccess = (data) => {
-    setIsProcessing(false);
+    // Prevent duplicate success messages
+    if (paymentCompletedRef.current) {
+      console.log('Payment already processed, skipping duplicate');
+      return;
+    }
+    
+    paymentCompletedRef.current = true;
     
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
+      statusCheckIntervalRef.current = null;
     }
+    
+    Swal.close();
+    setIsProcessing(false);
     
     Swal.fire({
       title: "Payment Successful! 🎉",
@@ -209,14 +240,20 @@ export default function PaymentPage2({ setUserData }) {
           <i class="fas fa-check-circle" style="font-size: 48px; color: #10b981;"></i>
           <h3 style="margin: 15px 0;">KSh ${data.amount || price} Paid</h3>
           <p>Your VIP subscription payment was successful!</p>
-          <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">
-            Transaction ID: ${data.transactionId || data.TransactionID || 'N/A'}
-          </p>
+          <div style="background: #f8f9ff; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: left;">
+            <p style="margin: 5px 0; font-size: 0.85rem;">
+              <strong>Transaction ID:</strong> ${data.transactionId || data.TransactionID || 'N/A'}
+            </p>
+            <p style="margin: 5px 0; font-size: 0.85rem;">
+              <strong>Reference:</strong> ${data.reference || currentReferenceRef.current || 'N/A'}
+            </p>
+          </div>
         </div>
       `,
       icon: "success",
       confirmButtonText: "Activate Subscription",
-      confirmButtonColor: "#059669"
+      confirmButtonColor: "#059669",
+      allowOutsideClick: false
     }).then(() => {
       handleUpgrade();
     });
@@ -236,11 +273,13 @@ export default function PaymentPage2({ setUserData }) {
       if (data.status === 'completed') {
         if (statusCheckIntervalRef.current) {
           clearInterval(statusCheckIntervalRef.current);
+          statusCheckIntervalRef.current = null;
         }
         handlePaymentSuccess(data);
       } else if (data.status === 'failed') {
         if (statusCheckIntervalRef.current) {
           clearInterval(statusCheckIntervalRef.current);
+          statusCheckIntervalRef.current = null;
         }
         Swal.close();
         Swal.fire({
@@ -249,6 +288,7 @@ export default function PaymentPage2({ setUserData }) {
           icon: "error"
         });
         setIsProcessing(false);
+        paymentCompletedRef.current = false;
       }
     } catch (error) {
       console.error('Status check error:', error);
@@ -258,6 +298,9 @@ export default function PaymentPage2({ setUserData }) {
   // Handle M-Pesa payment with HashBack
   const handleMpesaPayment = async () => {
     if (isProcessing) return;
+    
+    // Reset payment completed flag
+    paymentCompletedRef.current = false;
     
     // Show phone number input modal
     const { value: phoneNumber } = await Swal.fire({
@@ -291,6 +334,7 @@ export default function PaymentPage2({ setUserData }) {
     if (!phoneNumber) return;
 
     const formattedPhone = formatPhoneNumberForHashBack(phoneNumber);
+    const displayPhone = formatPhoneForDisplay(phoneNumber);
     
     // Show loading
     Swal.fire({
@@ -306,6 +350,7 @@ export default function PaymentPage2({ setUserData }) {
 
     try {
       const reference = `VIP-${getSubscriptionPeriod()}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      currentReferenceRef.current = reference;
       
       const response = await fetch(`${HASHBACK_API_URL}/api/initiate-payment`, {
         method: 'POST',
@@ -347,68 +392,67 @@ export default function PaymentPage2({ setUserData }) {
               <i class="fas fa-mobile-alt" style="font-size: 48px; color: #065f46;"></i>
               <h3 style="margin: 15px 0;">Enter M-Pesa PIN</h3>
               <p>Check your phone to authorize payment of <strong>KSH ${price}</strong></p>
-              <p style="margin-top: 10px;"><small>Phone: ${formattedPhone}</small></p>
+              <p style="margin-top: 10px;"><small>Phone: ${displayPhone}</small></p>
               <div style="background: #f8f9ff; padding: 12px; border-radius: 8px; margin-top: 15px;">
                 <p style="font-size: 0.8rem; margin: 0; color: #666;">
                   Reference: ${reference}
                 </p>
               </div>
-              <p style="font-size: 0.8rem; color: #059669; margin-top: 10px;">
-                <i class="fas fa-clock"></i> You have 2 minutes to complete the payment
+              <div style="margin-top: 20px;">
+                <div class="spinner-border text-success" role="status" style="width: 40px; height: 40px;">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+              <p style="font-size: 0.85rem; color: #059669; margin-top: 15px;">
+                <i class="fas fa-clock"></i> Waiting for payment confirmation...
+              </p>
+              <p style="font-size: 0.75rem; color: #888; margin-top: 10px;">
+                You have 2 minutes to complete the payment
               </p>
             </div>
           `,
           icon: "info",
-          confirmButtonText: "I've Completed Payment",
-          showCancelButton: true,
-          cancelButtonText: "Cancel",
-        }).then((result) => {
-          if (result.isConfirmed) {
-            Swal.fire({
-              title: "Waiting for Confirmation",
-              html: `
-                <div style="text-align: center;">
-                  <div class="spinner-border text-success" role="status" style="width: 48px; height: 48px;">
-                    <span class="visually-hidden">Loading...</span>
-                  </div>
-                  <p style="margin-top: 15px;">Please wait while we confirm your payment...</p>
-                  <p style="font-size: 0.85rem; color: #666;">This will take a few moments</p>
-                </div>
-              `,
-              allowOutsideClick: false,
-              didOpen: () => {
-                Swal.showLoading();
-              }
-            });
-            
+          showConfirmButton: false,
+          allowOutsideClick: false,
+          didOpen: () => {
             // Start polling for payment status
             statusCheckIntervalRef.current = setInterval(() => {
-              if (currentCheckoutIdRef.current) {
+              if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
                 checkPaymentStatus(currentCheckoutIdRef.current);
               }
             }, 5000);
             
             // Set timeout for payment confirmation (2 minutes)
             setTimeout(() => {
-              if (statusCheckIntervalRef.current) {
-                clearInterval(statusCheckIntervalRef.current);
+              if (!paymentCompletedRef.current) {
+                if (statusCheckIntervalRef.current) {
+                  clearInterval(statusCheckIntervalRef.current);
+                  statusCheckIntervalRef.current = null;
+                }
                 Swal.close();
                 Swal.fire({
                   title: "Payment Not Confirmed",
-                  text: "Payment confirmation timed out. Please check your M-Pesa statement or contact support.",
+                  html: `
+                    <div style="text-align: center;">
+                      <i class="fas fa-clock" style="font-size: 48px; color: #f59e0b;"></i>
+                      <h3 style="margin: 15px 0;">Payment Timeout</h3>
+                      <p>We didn't receive confirmation of your payment within the expected time.</p>
+                      <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-top: 15px;">
+                        <p style="font-size: 0.85rem; margin: 0; color: #92400e;">
+                          Please check your M-Pesa transaction history.
+                          If the payment was deducted, your VIP will be activated automatically.
+                        </p>
+                      </div>
+                    </div>
+                  `,
                   icon: "warning",
+                  confirmButtonText: "OK",
                   confirmButtonColor: "#059669"
                 });
                 setIsProcessing(false);
+                paymentCompletedRef.current = false;
               }
-            }, 120000);
-          } else {
-            setIsProcessing(false);
-            Swal.fire({
-              title: "Payment Cancelled",
-              text: "You can complete the payment from your M-Pesa app or try again.",
-              icon: "info"
-            });
+            }, 1100);
           }
         });
       } else {
@@ -418,10 +462,24 @@ export default function PaymentPage2({ setUserData }) {
       console.error('Payment error:', error);
       Swal.fire({
         title: "Payment Failed",
-        text: error.message || "Unable to initiate payment. Please try again.",
-        icon: "error"
+        html: `
+          <div style="text-align: center;">
+            <i class="fas fa-exclamation-circle" style="font-size: 48px; color: #dc2626;"></i>
+            <h3 style="margin: 15px 0;">Payment Failed</h3>
+            <p>${error.message || "Unable to initiate payment. Please try again."}</p>
+            <div style="background: #fef2f2; padding: 12px; border-radius: 8px; margin-top: 15px;">
+              <p style="font-size: 0.85rem; margin: 0; color: #991b1b;">
+                <i class="fas fa-info-circle"></i> Ensure your phone number is correct and you have sufficient M-Pesa balance.
+              </p>
+            </div>
+          </div>
+        `,
+        icon: "error",
+        confirmButtonText: "Try Again",
+        confirmButtonColor: "#059669"
       });
       setIsProcessing(false);
+      paymentCompletedRef.current = false;
     }
   };
 
@@ -474,8 +532,8 @@ export default function PaymentPage2({ setUserData }) {
   // Handle payment method change
   const handlePaymentMethodChange = (methodId) => {
     setPaymentType(methodId);
-    // Reset processing state when switching methods
     setIsProcessing(false);
+    paymentCompletedRef.current = false;
   };
 
   // PayPal order creation
@@ -629,10 +687,12 @@ export default function PaymentPage2({ setUserData }) {
                 className="paystack-btn"
                 disabled={isProcessing}
                 style={{
+                  background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                   opacity: isProcessing ? 0.7 : 1,
                   cursor: isProcessing ? "not-allowed" : "pointer"
                 }}
               >
+                <i className={`fas ${isProcessing ? 'fa-spinner fa-spin' : 'fa-mobile-alt'}`} style={{ marginRight: '8px' }}></i>
                 {isProcessing ? "Processing..." : "Pay with M-Pesa"}
               </button>
             </div>
@@ -663,6 +723,35 @@ export default function PaymentPage2({ setUserData }) {
           )}
         </div>
       </div>
+
+      {/* Add global styles for spinner */}
+      <style>{`
+        .spinner-border {
+          display: inline-block;
+          width: 40px;
+          height: 40px;
+          border: 4px solid #059669;
+          border-right-color: transparent;
+          border-radius: 50%;
+          animation: spinner-border 0.75s linear infinite;
+        }
+        
+        @keyframes spinner-border {
+          to { transform: rotate(360deg); }
+        }
+        
+        .visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+      `}</style>
     </PayPalScriptProvider>
   );
 }
