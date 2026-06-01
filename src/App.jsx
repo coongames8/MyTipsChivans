@@ -19,7 +19,7 @@ import UserProfile from "./pages/userProfile/UserProfile";
 import ListUsers from "./pages/ListUsers";
 import EditUser from "./pages/EditUser";
 import { doc, getDoc } from "firebase/firestore";
-import PaymentPage from "./pages/Payments/PaymentPage";
+import PaymentPage2 from "./pages/Payments/PaymentPage2";
 
 
 function App() {
@@ -134,7 +134,7 @@ function App() {
             <Navbar />
             <Routes>
               <Route path='/' element={<Home userData={userData} />} />
-              <Route path='pay' element={currentUser ? <PaymentPage setUserData={setUserData} /> : <Login />} />
+              <Route path='pay' element={currentUser ? <PaymentPage2 setUserData={setUserData} /> : <Login />} />
               <Route path='admin/tips' element={currentUser ? <AdminTips /> : <Login />} />
               <Route path='edit' element={currentUser ? <EditTip /> : <Login />} />
               <Route path='users' element={currentUser ? <ListUsers /> : <Login />} />

@@ -78,6 +78,7 @@ export default function PaymentPage({ setUserData }) {
         }
     };
 
+
     const paystackConfig = {
         reference: (new Date()).getTime().toString(),
         email: currentUser.email,
