@@ -44,6 +44,7 @@ export default function PaymentPage2({ setUserData }) {
   const currentReferenceRef = useRef(null);
   const statusCheckIntervalRef = useRef(null);
   const paymentCompletedRef = useRef(false);
+  const timeoutRef = useRef(null);
 
   // Payment methods
   const paymentMethods = [
@@ -84,6 +85,9 @@ export default function PaymentPage2({ setUserData }) {
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
       }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
 
@@ -108,12 +112,13 @@ export default function PaymentPage2({ setUserData }) {
       wsRef.current.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('WebSocket message:', message);
+          console.log('WebSocket message received:', message);
           
           if (message.type === 'payment_completed') {
+            console.log('✅ Payment completed via WebSocket!');
             handlePaymentSuccess(message.data);
           } else if (message.type === 'registered') {
-            console.log('Registered for checkout:', message.checkoutId);
+            console.log('✅ Registered for checkout:', message.checkoutId);
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -223,11 +228,17 @@ export default function PaymentPage2({ setUserData }) {
       return;
     }
     
+    console.log('🎉 Processing payment success:', data);
     paymentCompletedRef.current = true;
     
+    // Clear all intervals and timeouts
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
       statusCheckIntervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     
     Swal.close();
@@ -261,6 +272,7 @@ export default function PaymentPage2({ setUserData }) {
 
   const checkPaymentStatus = async (checkoutId) => {
     try {
+      console.log('Checking payment status for checkoutId:', checkoutId);
       const response = await fetch(`${HASHBACK_API_URL}/api/check-payment-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,27 +280,39 @@ export default function PaymentPage2({ setUserData }) {
       });
       
       const data = await response.json();
-      console.log('Status check:', data);
+      console.log('Payment status response:', data);
       
       if (data.status === 'completed') {
+        console.log('✅ Payment completed detected via polling!');
         if (statusCheckIntervalRef.current) {
           clearInterval(statusCheckIntervalRef.current);
           statusCheckIntervalRef.current = null;
         }
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         handlePaymentSuccess(data);
       } else if (data.status === 'failed') {
+        console.log('❌ Payment failed:', data);
         if (statusCheckIntervalRef.current) {
           clearInterval(statusCheckIntervalRef.current);
           statusCheckIntervalRef.current = null;
+        }
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
         }
         Swal.close();
         Swal.fire({
           title: "Payment Failed",
-          text: "The payment was not successful. Please try again.",
+          text: data.errorDesc || "The payment was not successful. Please try again.",
           icon: "error"
         });
         setIsProcessing(false);
         paymentCompletedRef.current = false;
+      } else {
+        console.log('⏳ Payment status:', data.status, '- still waiting...');
       }
     } catch (error) {
       console.error('Status check error:', error);
@@ -352,6 +376,12 @@ export default function PaymentPage2({ setUserData }) {
       const reference = `VIP-${getSubscriptionPeriod()}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
       currentReferenceRef.current = reference;
       
+      console.log('Initiating payment with:', {
+        amount: price,
+        phone: formattedPhone,
+        reference: reference
+      });
+      
       const response = await fetch(`${HASHBACK_API_URL}/api/initiate-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -380,11 +410,14 @@ export default function PaymentPage2({ setUserData }) {
             type: 'register',
             checkoutId: data.checkoutId
           }));
+          console.log('Registered checkout with WebSocket:', data.checkoutId);
+        } else {
+          console.log('WebSocket not ready, will rely on polling');
         }
         
         Swal.close();
         
-        // Show M-Pesa prompt
+        // Show M-Pesa prompt with waiting indicator
         Swal.fire({
           title: "Check Your Phone",
           html: `
@@ -407,7 +440,7 @@ export default function PaymentPage2({ setUserData }) {
                 <i class="fas fa-clock"></i> Waiting for payment confirmation...
               </p>
               <p style="font-size: 0.75rem; color: #888; margin-top: 10px;">
-                You have 2 minutes to complete the payment
+                Please complete the payment on your phone. This may take up to 2 minutes.
               </p>
             </div>
           `,
@@ -415,16 +448,18 @@ export default function PaymentPage2({ setUserData }) {
           showConfirmButton: false,
           allowOutsideClick: false,
           didOpen: () => {
-            // Start polling for payment status
+            // Start polling for payment status - check every 3 seconds
             statusCheckIntervalRef.current = setInterval(() => {
               if (currentCheckoutIdRef.current && !paymentCompletedRef.current) {
                 checkPaymentStatus(currentCheckoutIdRef.current);
               }
-            }, 5000);
+            }, 3000); // Check every 3 seconds
             
-            // Set timeout for payment confirmation (2 minutes)
-            setTimeout(() => {
+            // Set timeout for payment confirmation - 2 minutes (120 seconds)
+            // This gives the user enough time to complete the M-Pesa transaction
+            timeoutRef.current = setTimeout(() => {
               if (!paymentCompletedRef.current) {
+                console.log('Payment timeout reached after 2 minutes');
                 if (statusCheckIntervalRef.current) {
                   clearInterval(statusCheckIntervalRef.current);
                   statusCheckIntervalRef.current = null;
@@ -435,24 +470,45 @@ export default function PaymentPage2({ setUserData }) {
                   html: `
                     <div style="text-align: center;">
                       <i class="fas fa-clock" style="font-size: 48px; color: #f59e0b;"></i>
-                      <h3 style="margin: 15px 0;">Payment Timeout</h3>
-                      <p>We didn't receive confirmation of your payment within the expected time.</p>
+                      <h3 style="margin: 15px 0;">Waiting for Payment</h3>
+                      <p>We haven't received confirmation yet.</p>
                       <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-top: 15px;">
                         <p style="font-size: 0.85rem; margin: 0; color: #92400e;">
-                          Please check your M-Pesa transaction history.
-                          If the payment was deducted, your VIP will be activated automatically.
+                          <i class="fas fa-info-circle"></i> If you completed the payment, please wait a moment and check your M-Pesa messages.
+                        </p>
+                        <p style="font-size: 0.85rem; margin: 10px 0 0 0; color: #92400e;">
+                          The confirmation may take a few moments to process.
                         </p>
                       </div>
+                      <button id="check-status-btn" class="swal2-confirm swal2-styled" style="margin-top: 15px; background-color: #059669;">
+                        Check Payment Status
+                      </button>
                     </div>
                   `,
                   icon: "warning",
-                  confirmButtonText: "OK",
-                  confirmButtonColor: "#059669"
+                  showConfirmButton: false,
+                  showCancelButton: true,
+                  cancelButtonText: "Close",
+                  didOpen: () => {
+                    const checkBtn = document.getElementById('check-status-btn');
+                    if (checkBtn) {
+                      checkBtn.onclick = () => {
+                        if (currentCheckoutIdRef.current) {
+                          Swal.showLoading();
+                          checkPaymentStatus(currentCheckoutIdRef.current);
+                        }
+                      };
+                    }
+                  }
+                }).then((result) => {
+                  if (result.dismiss === Swal.DismissReason.cancel) {
+                    setIsProcessing(false);
+                    paymentCompletedRef.current = false;
+                  }
                 });
                 setIsProcessing(false);
-                paymentCompletedRef.current = false;
               }
-            }, 3000);
+            }, 120000); // 2 minutes timeout - IMPORTANT: This was changed from 3000 to 120000
           }
         });
       } else {
